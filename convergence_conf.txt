@@ -1,0 +1,4 @@
+width 100
+points for convergence 3
+steps 33
+converged slope 0.001
