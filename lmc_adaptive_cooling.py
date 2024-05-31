@@ -141,7 +141,7 @@ def tot_energy(s, Eseg, w):
     e_w = 0
     for i in range(Fsize):
         e_w += np.sum(np.tensordot(bn[:, i],bn[:, i],axes=0)*w)/(Fsize*M)
-    return (e_seg + e_w), e_seg
+    return (e_seg + e_w)
 
 def read_conv_conf(fname):
     with open(fname, 'r') as f :
@@ -181,7 +181,6 @@ def slopes(es, st, w):
     for i in range(len(s1s)):
         slps[i] = slope(es, s1s[i], w)
     return slps
-    
 
 # def energy
 """
@@ -233,13 +232,14 @@ plt.show()
 """
 MAIN
 """
-Fsize = 200 # number of sites in type
-T = 600
-dT = 10
-Nsteps = int(1e8)
+Fsize = 10 # number of sites in type
+T = 1000
+Tf = 50
+d = 0.1
 Xtot = 10/100
-print_each = 50000
-save_each = 10000
+Nsteps = int(Xtot*(1-Xtot)*(M*Fsize)**2)
+print_each = 1000
+save_each = 1000
 plot_each = 10000
 dump_each = 50000
 njobs = 4
@@ -258,12 +258,11 @@ accepteds = 0
 accepteds0 = 0
 steps = 0
 flag = True
-es = np.zeros((Nsteps//plot_each))
-es0 = np.zeros((Nsteps//plot_each))
+es = np.zeros((Nsteps//save_each))
 
 N_conv = 0
 N_conv_tot = 0
-while T>0:
+while T>Tf:
     accepteds += step(s, T, njobs)/njobs
     
     if steps%print_each==0:
@@ -271,18 +270,22 @@ while T>0:
         da = accepteds - accepteds0
         print('acceptance ratio: ', round(da/print_each,4))
         accepteds0 = accepteds
+    if steps%save_each==0:
+        n = steps//save_each
+        es[n] = tot_energy(s, Eseg, w)
     if steps%plot_each==0:
         plt.figure(figsize=(15, 5))
-        n = steps//plot_each
-        es[n], es0[n] = tot_energy(s, Eseg, w)
         plt.subplot(131)
         plt.plot(es[:n+1], label='tot')
         plt.legend(loc='upper left')
-        plt.twinx()
-        plt.plot(es0[:n+1], color='red', label='non-int')
-        plt.legend(loc='upper right')
         plt.subplot(132)
+        bn = (s+1)/2
+        xs = bn.sum(axis=1)/bn.shape[1]
+        srt = np.argsort(xs)[::-1]
+        plt.plot(xs[srt])
+        plt.subplot(133)
         width, Npoints, st, slope_conv = read_conv_conf('convergence_conf.txt')
+        n = steps//save_each
         slps = slopes(es[:n+1], st, width)
         if np.any(slps):
             plt.plot(slps, '.')
@@ -293,119 +296,34 @@ while T>0:
             if len(slps)>0:
                 if slps[-1]>slope_conv:
                     N_conv = 0
+        plt.hlines(slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
+        plt.hlines(-slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
         print('N convergence: ', N_conv)
         if N_conv>=Npoints:
-            T-=dT
+            T = T/(1+kB*T*np.log(1+d)/np.log(2)/3/es.std())
             accepteds = 0
             accepteds0 = 0
             steps = -1
             es = np.zeros((Nsteps//plot_each))
-            es0 = np.zeros((Nsteps//plot_each))
+            print('New temperature: ', T)
             N_conv = 0
             N_conv_tot = 0
-            print('New temperature: ', T)
-        plt.hlines(slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
-        plt.hlines(-slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
-        plt.subplot(133)
-        bn = (s+1)/2
-        xs = bn.sum(axis=1)/bn.shape[1]
-        srt = np.argsort(xs)[::-1]
-        plt.plot(xs[srt])
+        plt.suptitle(f'T {round(T)} K')
         plt.gcf().tight_layout()
         plt.show()
     if steps%dump_each==0:
         with open('s.dump', 'wb') as f:
             pickle.dump(s, f)
+    if steps%Nsteps==0 and steps>0:
+        T = T/(1+kB*T*np.log(1+d)/np.log(2)/3/es.std())
+        accepteds = 0
+        accepteds0 = 0
+        steps = -1
+        es = np.zeros((Nsteps//plot_each))
+        print('New temperature: ', T)
+        N_conv = 0
+        N_conv_tot = 0
     steps += 1
-    
-print('')
-print('avg acceptance ratio: ', round(accepteds/steps,4))
-print('')
+
 end = time.time()
 print('steps: ', steps*njobs, '; time: ', end-start)
-
-#%%
-# with open('s.dump', 'rb') as f:
-#     s = pickle.load(f)
-    
-from copy import deepcopy as dc
-from itertools import chain, repeat
-
-
-#s = ss[66712]
-#s_selected = ss[30000:67712:1000]
-s_selected = [ss[67712]]
-for s in s_selected:
-    bn = (1+s)/2
-    xs = bn.sum(axis=1)/Fsize
-    srt = np.argsort(xs)[::-1]
-    #xs = xs[srt]
-    # plt.plot(xs[srt])
-    # plt.show()
-    
-
-    
-    lenght = len(xs[xs!=0])
-    xs = xs[srt]#[:lenght]
-    plt.plot(xs)
-    
-    # kT = 0.025*eV2kJmole*600/300
-    # wsorted = w[srt][:lenght]
-    # wsorted = wsorted[:, srt][:, :lenght]
-    # wsorted[np.abs(wsorted)<2*kT] = 0
-    
-    
-    
-    
-    # Er = Eseg[srt][:lenght] + np.sum(np.tril(wsorted, -1), axis=1)
-    
-    
-    # Xs = list(set(xs))
-    # Erc = np.zeros(len(Xs))
-    # Fs = np.ones(len(Xs)).astype(int)
-   
-    # Xs = list(set(xs))
-    # for i in range(len(Xs)):
-    #     msk = (xs==Xs[i])
-    #     Erc[i] = Er[msk].mean()
-    #     Fs[i] = np.sum(msk)
-        
-    # plt.plot(Er)
-    # plt.show()
-    
-    # Fs = np.ones(len(Er)).astype(int)
-    # Erc = dc(Er)
-    # flag = True
-    # while flag:
-    #     flag = False
-    #     i = 1
-    #     while Fs[i] != 0:
-    #         if Erc[i]<=Erc[i-1]:
-    #             flag = True
-    #             Erc[i-1] = (Erc[i-1]*Fs[i-1]+Erc[i]*Fs[i])/(Fs[i-1]+Fs[i])
-    #             Erc[i:-1] = Erc[i+1:]
-    #             Erc[-1] = 0
-    #             Fs[i-1] += Fs[i]
-    #             Fs[i:-1] = Fs[i+1:]
-    #             Fs[-1] = 0
-                
-    #         else:
-    #             i+=1
-                
-    # plt.plot(Erc)
-    # plt.show()
-    # Ehist = list(chain.from_iterable(repeat(j, times = i) for i, j in zip(Fs, Erc)))
-    # #Ehist = np.sort(Er)
-    # plt.plot(Ehist)
-    
-
-plt.show()
-# plt.hist(Ehist, density=True)
-# params = skewnorm.fit(Ehist)
-# Es = np.linspace(np.min(Ehist), np.max(Ehist))
-# plt.plot(Es, skewnorm.pdf(Es, *params))
-
-
-
-
-
