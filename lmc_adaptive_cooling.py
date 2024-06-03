@@ -238,6 +238,7 @@ Tf = 50
 d = 0.1
 Xtot = 10/100
 Nsteps = int(Xtot*(1-Xtot)*(M*Fsize)**2)
+conv_stop = False
 print_each = 1000
 save_each = 1000
 plot_each = 10000
@@ -299,7 +300,7 @@ while T>Tf:
         plt.hlines(slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
         plt.hlines(-slope_conv, 0, max(1, len(slps)), color='grey', linestyle='--')
         print('N convergence: ', N_conv)
-        if N_conv>=Npoints:
+        if N_conv>=Npoints and conv_stop:
             T = T/(1+kB*T*np.log(1+d)/np.log(2)/3/es.std())
             accepteds = 0
             accepteds0 = 0
