@@ -199,7 +199,7 @@ plt.show()
 MAIN
 """
 Fsize = 10 # number of sites in type
-T0 = 10000
+T0 = 8000
 Tf = 0
 Xtot = 10/100
 Nsteps = int(1e9)
@@ -207,10 +207,10 @@ print_each = 1000
 save_each = 1000
 plot_each = 10000
 dump_each = 50000
-T_each = plot_each*10
-k_f = 0.8
+T_each = plot_each*30
+k_f = 0.85
 k_s = 0.95
-cv_c = 0.005
+cv_c = 0.00001
 njobs = 4
 
 
@@ -268,7 +268,7 @@ while T>Tf and steps<Nsteps:
         plt.plot(ts[:steps//plot_each+1], color='red')
         plt.gcf().tight_layout()
         plt.show()
-    if steps%T_each==0 and steps>0:
+    if steps%T_each==0 and steps>0:#rewrite to continous cooling
         cvmax = cv[(steps-T_each)//plot_each:steps//plot_each+1].max()
         if cvmax >= cv_c:
             k = k_s

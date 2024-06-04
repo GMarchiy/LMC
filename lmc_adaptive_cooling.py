@@ -234,7 +234,7 @@ MAIN
 """
 Fsize = 10 # number of sites in type
 T = 1000
-Tf = 50
+Tf = 1
 d = 0.1
 Xtot = 10/100
 Nsteps = int(Xtot*(1-Xtot)*(M*Fsize)**2)
@@ -259,7 +259,7 @@ accepteds = 0
 accepteds0 = 0
 steps = 0
 flag = True
-es = np.zeros((Nsteps//save_each))
+es = np.zeros((Nsteps//save_each+1))
 
 N_conv = 0
 N_conv_tot = 0
@@ -305,7 +305,7 @@ while T>Tf:
             accepteds = 0
             accepteds0 = 0
             steps = -1
-            es = np.zeros((Nsteps//plot_each))
+            es = np.zeros((Nsteps//save_each+1+1))
             print('New temperature: ', T)
             N_conv = 0
             N_conv_tot = 0
@@ -320,7 +320,7 @@ while T>Tf:
         accepteds = 0
         accepteds0 = 0
         steps = -1
-        es = np.zeros((Nsteps//plot_each))
+        es = np.zeros((Nsteps//save_each+1))
         print('New temperature: ', T)
         N_conv = 0
         N_conv_tot = 0
