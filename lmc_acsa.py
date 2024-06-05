@@ -276,7 +276,7 @@ while T>Tf and steps<Nsteps:
         # plt.plot(xs[srt])
         bars = bn.sum(axis=0)
         srt = np.argsort(bars)
-        plt.bar(np.arange(bn.shape[1])[srt], bn.sum(axis=0)[srt])
+        plt.bar(np.arange(bn.shape[1]), bn.sum(axis=0)[srt])
         plt.subplot(133)
         eslice = es[(steps-plot_each)//save_each:n+1]
         cv[steps//plot_each] = eslice.var()/(kB*T)**2
