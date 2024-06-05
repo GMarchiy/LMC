@@ -212,8 +212,8 @@ plt.show()
 """
 MAIN
 """
-Fsize = 10 # number of sites in type
-T0 = 500
+Fsize = 20 # number of sites in type
+T0 = 8000
 Tf = 10
 Xtot = 10/100
 Nsteps = int(1e8)
@@ -229,7 +229,7 @@ Ncv = 100000
 Ncool = 100000
 k_f = 1e-1/Ncool
 k_s = 1e-2/Ncool
-cv_c = 0.00001
+cv_c = 0.00003
 
 import time
 start = time.time()
@@ -248,9 +248,6 @@ flag = True
 es = np.zeros((Nsteps//save_each))
 ts = np.zeros((Nsteps//plot_each))
 cv = np.zeros((Nsteps//plot_each))
-de = 0
-det = 0
-kA = 300
 T = T0
 cooling = False
 T_each = Neq + Ncv + Ncool
@@ -274,9 +271,10 @@ while T>Tf and steps<Nsteps:
         plt.legend(loc='upper left')
         plt.subplot(132)
         bn = (s+1)/2
-        xs = bn.sum(axis=1)/bn.shape[1]
-        srt = np.argsort(xs)[::-1]
-        plt.plot(xs[srt])
+        # xs = bn.sum(axis=1)/bn.shape[1]
+        # srt = np.argsort(xs)[::-1]
+        # plt.plot(xs[srt])
+        plt.bar(np.arange(bn.shape[1]), bn.sum(axis=0))
         plt.subplot(133)
         eslice = es[(steps-plot_each)//save_each:n+1]
         cv[steps//plot_each] = eslice.var()/(kB*T)**2
