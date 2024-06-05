@@ -33,6 +33,20 @@ def init(Xtot, s, Fsize):
             break
     return cnt
         
+def rnd_init(Xtot, s, Fsize):
+    cnt = 0
+    for i in range(M):
+        for j in range(Fsize):
+            sij = np.random.choice([-1,1], p=[1-Xtot, Xtot])
+            s[i][j] = sij
+            if sij == 1:
+                cnt += 1
+            if cnt == round(Xtot*M*Fsize):
+                break
+        if cnt == round(Xtot*M*Fsize):
+            break
+    return cnt
+
 @njit(cache=True)
 def trial(s, njobs):# a -> b, b -> a
     idx = np.arange(M*Fsize)
@@ -199,10 +213,10 @@ plt.show()
 MAIN
 """
 Fsize = 10 # number of sites in type
-T0 = 8000
-Tf = 0
+T0 = 500
+Tf = 10
 Xtot = 10/100
-Nsteps = int(1e9)
+Nsteps = int(1e8)
 print_each = 1000
 save_each = 1000
 plot_each = 10000
@@ -222,7 +236,8 @@ start = time.time()
 #print(start)
 
 s = -np.ones((M, Fsize))
-cnt = init(Xtot, s, Fsize)
+#cnt = init(Xtot, s, Fsize)
+cnt = rnd_init(Xtot, s, Fsize)
 # with open('s.dump', 'rb') as f:
 #     s = pickle.load(f)
 
