@@ -207,12 +207,15 @@ print_each = 1000
 save_each = 1000
 plot_each = 10000
 dump_each = 50000
-T_each = plot_each*30
-k_f = 0.85
-k_s = 0.95
-cv_c = 0.00001
-njobs = 4
 
+
+njobs = 4
+Neq = 100000
+Ncv = 100000
+Ncool = 100000
+k_f = 1e-1/Ncool
+k_s = 1e-2/Ncool
+cv_c = 0.00001
 
 import time
 start = time.time()
@@ -234,6 +237,8 @@ de = 0
 det = 0
 kA = 300
 T = T0
+cooling = False
+T_each = Neq + Ncv + Ncool
 
 while T>Tf and steps<Nsteps:
     accepteds += step(s, T, njobs)/njobs
@@ -268,13 +273,20 @@ while T>Tf and steps<Nsteps:
         plt.plot(ts[:steps//plot_each+1], color='red')
         plt.gcf().tight_layout()
         plt.show()
-    if steps%T_each==0 and steps>0:#rewrite to continous cooling
-        cvmax = cv[(steps-T_each)//plot_each:steps//plot_each+1].max()
+    if steps%T_each==0 and steps>0:
+        cooling = True
+        cool_step = 0
+        cvmax = cv[(steps-Ncv)//plot_each:steps//plot_each+1].mean()
         if cvmax >= cv_c:
             k = k_s
         else:
             k = k_f
-        T *= k
+    if cooling:
+        if cool_step < Ncool:
+            T *= (1-k)
+            cool_step += 1
+        else:
+            cooling = False
     if steps%dump_each==0:
         with open('s.dump', 'wb') as f:
             pickle.dump(s, f)
