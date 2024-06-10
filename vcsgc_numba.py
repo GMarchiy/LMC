@@ -6,9 +6,12 @@ from scipy.optimize import fsolve
 from scipy.stats import skewnorm, expon, linregress
 import pickle
 import numba_mpi as comm
+from mpi4py import MPI
+import time
 
 Ncpu = comm.size()
 rank = comm.rank()
+rng = np.random.default_rng(1234)
 
 Na = 6e23
 kB = 1.380649e-23*Na*1e-3 #kJK-1/mol
@@ -19,8 +22,8 @@ def prob_loc(dE, dN, mu, T):
     return np.exp(-(dE+dN*mu)/(kB*T)) #min(1, exp) however p always in [0, 1) so if exp>1 prob = 1
 
 @njit(cache=True)
-def prob_glob(N, kappa, dc, c, c0, T):
-    return np.exp(-kappa*N*N*dc*(dc-2*(c-c0))/(kB*T)) #min(1, exp) however p always in [0, 1) so if exp>1 prob = 1
+def prob_glob(N, kappa, dc, c, c0):
+    return np.exp(-kappa*dc*(dc+2*(c-c0))) #min(1, exp) however p always in [0, 1) so if exp>1 prob = 1
 
 def init(Xtot, M, Fp):
     s = -np.ones((M, Fp), dtype=np.int8)
@@ -51,15 +54,15 @@ def acc_loc(dE, dN, mu, T):
         return False
     
 @njit(cache=True)
-def acc_glob(N, kappa, dc, c, c0, T):
-    p = np.random.random()
-    if p<prob_glob(N, kappa, dc, c, c0, T):
+def acc_glob(N, kappa, dc, c, c0, rng):
+    p = rng.random()
+    if p<prob_glob(N, kappa, dc, c, c0):
         return True
     else:
         return False
     
 @njit#(cache=True)
-def step(s, T, mu, kappa, c0, Eseg, w, Fsize, Ntot):
+def step(s, T, mu, kappa, c0, Eseg, w, Fsize, Ntot, rng):
     M, Fp = s.shape
     i = np.random.randint(0, M)
     j = np.random.randint(0, Fp)
@@ -73,14 +76,16 @@ def step(s, T, mu, kappa, c0, Eseg, w, Fsize, Ntot):
         dE = 0
     N = Fsize*M
     dNtot = np.empty(1, dtype=np.int32)
-    comm.allreduce(np.array([dN], dtype=np.int32), dNtot, comm.Operator.SUM)
+    comm.allreduce(np.array([dN], dtype=np.int32), dNtot, 
+    comm.Operator.SUM)
     dc = dNtot/N
     c = Ntot/N
     
-    if acc_glob(N, kappa, dc, c, c0, T):
-        s[i,j] += dN
+    if acc_glob(N, kappa, dc, c, c0, rng):
+        s[i,j] += dN*2
         Ntot += dNtot
     else: 
+        dE = 0
         accepted = 0
     return accepted, Ntot, dE/N
     
@@ -90,14 +95,15 @@ Xtot = 10/100
 
 Nsites = Fsize*M
 
-T = 5000
-mu = 100
-kappa = 10
+T = 2000
+mu = 79
+kappa = 100
 
 Nsteps = 1e8
 print_each = 1000
 save_each = 1000
 plot_each = 10*save_each
+dump_each = 100000
 
 c0 = Xtot
 
@@ -135,7 +141,8 @@ if rank == 0:
     acs = np.zeros(int(Nsteps//save_each+1), dtype=np.float64)
     
 while steps<Nsteps:
-    accepted, Ntot, dE = step(s, T, mu, kappa, c0, Eseg, w, Fsize, Ntot)
+    accepted, Ntot, dE = step(s, T, mu, kappa, c0, 
+    Eseg, w, Fsize, Ntot, rng)
     accepteds += accepted
     steps += 1
     E += dE
@@ -146,7 +153,8 @@ while steps<Nsteps:
         comm.allreduce(np.array([E], dtype=np.float64), dEtot, comm.Operator.SUM)
         E = 0
         accepteds_tot = np.empty(1, dtype=np.int32)
-        comm.allreduce(accepteds, accepteds_tot, comm.Operator.SUM)
+        comm.allreduce(accepteds, accepteds_tot, 
+        comm.Operator.SUM)
         accepteds = 0
         if rank == 0:
             Etot += dEtot
@@ -156,9 +164,10 @@ while steps<Nsteps:
             acs[n] = accepteds_tot/save_each/Ncpu
             
     if steps%plot_each==0:
-        xs = np.sum((s+1)/2, axis=1)
-        comm.allreduce(xs, xs, comm.Operator.SUM)
-        xs = xs/Fsize
+        xs = np.sum((s+1)/2, axis=1).astype(np.float32)
+        xstot = np.empty(M, dtype=np.float32)
+        MPI.COMM_WORLD.Reduce([xs, M], [xstot, M],
+        op=MPI.SUM, root=0)
 
         if rank == 0:
             scale = 2
@@ -166,14 +175,23 @@ while steps<Nsteps:
             plt.subplot(131)
             plt.plot(es[:n+1])
             plt.subplot(132)
-            plt.plot(np.sort(xs)[::-1])
+            xstot = xstot/Fsize
+            plt.plot(np.sort(xstot)[::-1])
             plt.subplot(133)
-            plt.plot(cs[:n+1])
-            plt.twinx()
             plt.plot(acs[:n+1], color='red')
+            plt.twinx()
+            plt.plot(cs[:n+1])
+            plt.text(n*0.75, cs.max()*0.7, round(cs[:n+1].std(), 3))
             plt.gcf().tight_layout()
             plt.savefig(f'plots/step.png')
             plt.close()
+
+        if steps%dump_each==0:
+            stot = np.empty((M,Fsize), dtype=np.int8)
+            MPI.COMM_WORLD.Gather(s, stot, root=0)
+            if rank==0:
+                with open('s.dump', 'wb') as f:
+                    pickle.dump(stot, f)
         
         
         
