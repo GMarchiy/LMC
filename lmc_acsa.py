@@ -213,7 +213,7 @@ plt.show()
 MAIN
 """
 Fsize = 20 # number of sites in type
-T0 = 8000
+T0 = 500
 Tf = 10
 Xtot = 10/100
 Nsteps = int(1e8)
@@ -276,7 +276,7 @@ while T>Tf and steps<Nsteps:
         # plt.plot(xs[srt])
         bars = bn.sum(axis=0)
         srt = np.argsort(bars)
-        plt.bar(np.arange(bn.shape[1]), bn.sum(axis=0)[srt])
+        plt.bar(np.arange(bn.shape[1])  , bn.sum(axis=0)[srt])
         plt.subplot(133)
         eslice = es[(steps-plot_each)//save_each:n+1]
         cv[steps//plot_each] = eslice.var()/(kB*T)**2
