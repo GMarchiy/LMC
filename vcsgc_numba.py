@@ -83,13 +83,13 @@ def step(s, T, mu, kappa, c0, Eseg, w, Fsize, Ntot, rng):
     
     if acc_glob(N, kappa, dc, c, c0, rng):
         s[i,j] += dN*2
-        Ntot += dNtot
+        Ntot += dNtot[0]
     else: 
         dE = 0
         accepted = 0
-    return accepted, Ntot, dE/N
+    return accepted, Ntot, dE
     
-Fsize = 16
+Fsize = 4
 M = 1000
 Xtot = 10/100
 
@@ -99,7 +99,7 @@ T = 2000
 Tf = 100
 mu = 79
 n_mu = 10 #adjust mu every plot_each*n_mu
-dmu = 1 #step for adjusting mu (mu = mu + (c-c0)*dmu/100)
+dmu = 10 #step for adjusting mu (mu = mu + (c-c0)*dmu/100)
 
 kappa = 10000
 n_kappa = 100 #adjust kappa every plot_each*n_kappa
@@ -108,7 +108,7 @@ ac_treshold = 0.05 # decrease kappa if acc_ratio < ac_treshold
 cv_treshold = 5 # increase kappa if std > cv_treshold
 
 Neq = int(2e6)
-Ncool = int(1e6)
+Ncool = int(2e6)
 Nstd = int(2e6)
 T_each = Neq+Ncool+Nstd
 k_f = 2e-1/Ncool
@@ -143,9 +143,21 @@ partition = np.arange(Fsize)[mask]
 Fp = partition.shape[0]
 print(f'rank {rank}; partition {partition}')
 
-s, cnt = init(Xtot, M, Fp)
-Ntot = np.empty(1, dtype=np.int32)
-comm.allreduce(np.array([cnt], dtype=np.int32), Ntot, comm.Operator.SUM)
+continue_from_dump = False
+continue_from_dump = True
+
+if continue_from_dump:
+    with open('s.dump', 'rb') as f:
+        stot = pickle.load(f) 
+    s = stot[:,partition]
+    Ntot = np.int32(np.sum((stot+1)/2))
+    with open('params.dump', 'rb') as f:
+         (T, mu, kappa) = pickle.load(f) 
+
+else:
+    s, cnt = init(Xtot, M, Fp)
+    Ntot = np.empty(1, dtype=np.int32)
+    comm.allreduce(np.array([cnt], dtype=np.int32), Ntot, comm.Operator.SUM)
 
 accepteds = 0
 steps = 0
@@ -177,7 +189,7 @@ while T>Tf:
         if rank == 0:
             Etot += dEtot
             n = steps//save_each
-            es[n] = Etot
+            es[n] = Etot/Ntot
             cs[n] = 100*Ntot/Nsites
             acs[n] = accepteds_tot/save_each/Ncpu
             ts[n] = T
@@ -256,6 +268,8 @@ while T>Tf:
         if rank==0:
             with open('s.dump', 'wb') as f:
                 pickle.dump(stot, f)
+            with open('params.dump', 'wb') as f:
+                pickle.dump((T, mu, kappa), f)
         
         
         
